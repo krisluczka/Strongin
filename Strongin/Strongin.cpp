@@ -79,7 +79,64 @@ bool check_for_win( board* state, bool side ) {
     Returns a score for the yellow (negative means red is winning)
 */
 int_fast64_t evaluate( board* state ) {
-    int_fast64_t result = rand()%100;
+    int_fast64_t result = 0;
+    int_fast64_t yellow = 0;
+    int_fast64_t red = 0;
+
+    // for three in a row +200
+    bool check = true;
+    for ( int_fast8_t i = 2; i < 4; i++ ) {
+        for ( int_fast8_t j = 2; j < 5; j++ ) {
+            if ( state->state[j][i] == state->state[j - 1][i] && state->state[j][i] == state->state[j + 1][i] ) break;
+            if ( state->state[j][i] == state->state[j][i - 1] && state->state[j][i] == state->state[j][i + 1] ) break;
+            if ( state->state[j][i] == state->state[j][i - 1] && state->state[j][i] == state->state[j + 1][i] ) break;
+            if ( state->state[j][i] == state->state[j][i + 1] && state->state[j][i] == state->state[j - 1][i] ) break;
+            
+            check = false;
+        }
+        if ( check ) {
+            if ( state->side ) yellow += 1000;
+            else               red += 1000;
+            break;
+        }
+    }
+
+    // for four in a row +10000
+
+    // dominating the center
+    for ( int_fast8_t i = 0; i < 6; i++ ) {
+        if ( *state->state[3] == 1 )      red += 50;
+        else if ( *state->state[3] == 0 ) yellow += 50;
+
+        if ( *state->state[4] == 1 )      red += 25;
+        else if ( *state->state[4] == 0 ) yellow += 25;
+
+        if ( *state->state[2] == 1 )      red += 25;
+        else if ( *state->state[2] == 0 ) yellow += 25;
+
+        if ( *state->state[5] == 1 )      red += 10;
+        else if ( *state->state[5] == 0 ) yellow += 10;
+
+        if ( *state->state[1] == 1 )      red += 10;
+        else if ( *state->state[1] == 0 ) yellow += 10;
+    }
+
+    // odd even strategy
+    for ( int_fast8_t i = 0; i < 3; i++ ) {
+        for ( int_fast8_t j = 0; j < 7; j++ ) {
+            // yellow need to fill the odd ones
+            if ( state->state[j][i * 2] == 0 ) {
+                yellow += 200;
+            }
+
+            // red need to fill the odd ones
+            if ( state->state[j][i * 2 + 1] == 1 ) {
+                red += 200;
+            }
+        }
+    }
+
+    result = yellow - red;
 
     return result;
 }
@@ -107,6 +164,7 @@ int_fast64_t analyze( board* state, uint_fast8_t sample ) {
     int_fast64_t result = 0;
     uint_fast8_t column = 0;
     board* random_state = new board;
+
     for ( uint_fast64_t i = 0; i < pow( 2, sample ); i++ ) {
         // creating new board by copying the og
         *random_state = *state;
@@ -125,9 +183,11 @@ int_fast64_t analyze( board* state, uint_fast8_t sample ) {
 
     // remember to free up the memory, kids!
     delete random_state;
-
+    cout << ":" << result << "   ";
     // take average
     result >>= sample;
+
+    cout << result << endl;
 
     // return
     return result;
@@ -153,10 +213,11 @@ int_fast8_t search( board* state ) {
 
             // analyzing the move
             if ( state->side )
-                scores[i] = -analyze( new_state, 4 );
+                scores[i] = -analyze( new_state, 12 );
             else 
-                scores[i] = analyze( new_state, 4 );
+                scores[i] = analyze( new_state, 12 );
 
+            // searching for the best move
             if ( scores[i] > best_score ) {
                 move = i;
                 best_score = scores[i];
