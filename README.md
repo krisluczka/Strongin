@@ -16,6 +16,3 @@ Engine's goal is not to solve the game, but to take the correct decisions only u
 To optimize the searching process, engine uses:
 * zobrist hashing for lookup tables
 * multithreading
-
-Optimizations, that are planned for the nearest future:
-* bitboards
