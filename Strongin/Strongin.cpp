@@ -2,6 +2,8 @@
 #include <time.h>
 #include <stdlib.h>
 #include <math.h>
+#include <thread>
+#include <future>
 #define HASH_SIZE 67108864
 
 using namespace std;
@@ -186,8 +188,8 @@ int_fast64_t evaluate( board* state ) {
 
     // for four in a row
     int_fast8_t winning = check_for_win( state );
-    if ( winning == 0 ) yellow += 100;
-    else if ( winning == 1 ) red += 100;
+    if ( winning == 0 ) yellow += 1000;
+    else if ( winning == 1 ) red += 1000;
 
     // odd even strategy
     for ( int_fast8_t i = 0; i < 3; i++ ) {
@@ -310,42 +312,64 @@ int_fast64_t analyze( board* state, uint_fast8_t sample ) {
 }
 
 /*
+    Thread search
+*/
+
+int_fast64_t thread_search( board* state, int_fast8_t column ) {
+    int_fast64_t result = -9223372036854775807;
+    if ( state->check_move( column ) ) {
+        // copying board
+        board * new_state = new board;
+        *new_state = *state;
+
+        // making move
+        new_state->make_move( column );
+
+        // analyzing the move
+        if ( state->side )
+            result = -analyze( new_state, 18 );
+        else
+            result = analyze( new_state, 18 );
+
+        // always remember to free up the memory, kids!
+        delete new_state;
+    } else {
+        // if it's impossible, don't do it
+        return -9223372036854775807;
+    }
+
+    return result;
+}
+
+/*
     Searching through given position
 */
 int_fast8_t search( board* state ) {
-    int_fast64_t scores[7];
     int_fast8_t move = -1;
     int_fast64_t best_score = -9223372036854775807;
-    board* new_state;
-    // generate all the moves
+    int_fast64_t score;
+    
+    // thread comunnication thingy
+    vector<future<int_fast64_t>> future_results;
+    future_results.reserve( 7 );
+
+    // generating all the moves
     for ( int_fast8_t i = 0; i < 7; i++ ) {
-        if ( state->check_move( i ) ) {
-            // copying board
-            new_state = new board;
-            *new_state = *state;
+        // pushing the threads
+        future_results.push_back( async( launch::async, thread_search, state, i ) );
+    }
 
-            // making move
-            new_state->make_move( i );
+    // forcing to wait for the threads
+    for ( int_fast8_t i = 0; i < 7; i++ ) {
+        future_results[i].wait();
+    }
 
-            // analyzing the move
-            if ( state->side )
-                scores[i] = -analyze( new_state, 16 );
-            else 
-                scores[i] = analyze( new_state, 16 );
-
-            //cout << " Column " << int( i + 1 ) << ": " << scores[i] << endl;
-
-            // searching for the best move
-            if ( scores[i] > best_score ) {
-                move = i;
-                best_score = scores[i];
-            }
-
-            // always remember to free up the memory, kids!
-            delete new_state;
-        } else {
-            // if it's impossible, don't do it
-            scores[i] = -9223372036854775807;
+    // searching for the best move
+    for ( int_fast8_t i = 0; i < 7; i++ ) {
+        score = future_results[i].get();
+        if ( score > best_score ) {
+            move = i;
+            best_score = score;
         }
     }
 
